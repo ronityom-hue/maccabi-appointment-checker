@@ -1,0 +1,61 @@
+name: Check Maccabi Appointment
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check appointment
+        run: |
+          python << 'EOF'
+          import re
+          import requests
+          from datetime import datetime
+          import smtplib
+          from email.mime.text import MIMEText
+          import os
+
+          URL = "https://serguide.maccabi4u.co.il/heb/doctors/doctorssearchresults/doctorsinfopage/?ItemKeyIndex=294C0ECEA77D988FD7346AD53BA107CC95DDB7064AD8C42B027B0BC070B5759D&RequestId=00000000-0000-0001-0000-000000000191&Source=undefinedResults"
+
+          html = requests.get(URL, timeout=30).text
+
+          m = re.search(r'יום.*?(\\d{2}/\\d{2}/\\d{2})', html)
+
+          if not m:
+              raise Exception("Appointment date not found")
+
+          appointment = datetime.strptime(m.group(1), "%d/%m/%y")
+          target = datetime.strptime("23/06/26", "%d/%m/%y")
+
+          if appointment < target:
+
+              msg = MIMEText(
+                  f"נמצא תור מוקדם: {appointment.strftime('%d/%m/%Y')}\\n\\n{URL}"
+              )
+
+              msg["Subject"] = "נמצא תור מוקדם לד\"ר פאר"
+              msg["From"] = os.environ["EMAIL_FROM"]
+              msg["To"] = os.environ["EMAIL_TO"]
+
+              server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+              server.login(
+                  os.environ["EMAIL_FROM"],
+                  os.environ["EMAIL_PASSWORD"]
+              )
+
+              server.send_message(msg)
+              server.quit()
+
+          print("Current appointment:", appointment)
+          EOF
+        env:
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
