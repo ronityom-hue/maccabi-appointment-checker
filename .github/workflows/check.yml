@@ -17,9 +17,16 @@ jobs:
 
           URL = "https://serguide.maccabi4u.co.il/heb/doctors/doctorssearchresults/doctorsinfopage/?ItemKeyIndex=294C0ECEA77D988FD7346AD53BA107CC95DDB7064AD8C42B027B0BC070B5759D&RequestId=00000000-0000-0001-0000-000000000191&Source=undefinedResults"
 
-          r = requests.get(URL, timeout=30)
+          html = requests.get(URL, timeout=30).text
 
-          print("STATUS:", r.status_code)
-          print(r.text[:5000])
+          print("appintmentMobileAns found:", "appintmentMobileAns" in html)
+          print("תור פנוי קרוב found:", "תור פנוי קרוב" in html)
+
+          pos = html.find("appintmentMobileAns")
+
+          print("POSITION:", pos)
+
+          if pos != -1:
+              print(html[pos:pos+1000])
 
           EOF
