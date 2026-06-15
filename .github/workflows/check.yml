@@ -1,6 +1,8 @@
 name: Check Maccabi Appointment
 
 on:
+  schedule:
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -11,22 +13,78 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check appointment
+        env:
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         run: |
           python << 'EOF'
+          import re
+          import os
+          import smtplib
           import requests
+
+          from datetime import datetime
+          from email.mime.text import MIMEText
 
           URL = "https://serguide.maccabi4u.co.il/heb/doctors/doctorssearchresults/doctorsinfopage/?ItemKeyIndex=294C0ECEA77D988FD7346AD53BA107CC95DDB7064AD8C42B027B0BC070B5759D&RequestId=00000000-0000-0001-0000-000000000191&Source=undefinedResults"
 
           html = requests.get(URL, timeout=30).text
 
-          print("appintmentMobileAns found:", "appintmentMobileAns" in html)
-          print("תור פנוי קרוב found:", "תור פנוי קרוב" in html)
+          match = re.search(
+              r'appintmentMobileAns[^>]*>.*?(\d{2}/\d{2}/\d{2})',
+              html,
+              re.DOTALL
+          )
 
-          pos = html.find("appintmentMobileAns")
+          if not match:
+              raise Exception("Appointment date not found")
 
-          print("POSITION:", pos)
+          appointment_str = match.group(1)
+          appointment_date = datetime.strptime(
+              appointment_str,
+              "%d/%m/%y"
+          )
 
-          if pos != -1:
-              print(html[pos:pos+1000])
+          target_date = datetime.strptime(
+              "23/06/26",
+              "%d/%m/%y"
+          )
+
+          print("Found appointment:", appointment_str)
+
+          if appointment_date < target_date:
+
+              body = f"""
+נמצא תור מוקדם לד"ר פאר
+
+תאריך:
+{appointment_str}
+
+קישור:
+{URL}
+"""
+
+              msg = MIMEText(body, "plain", "utf-8")
+              msg["Subject"] = "תור מוקדם לד\"ר פאר"
+              msg["From"] = os.environ["EMAIL_FROM"]
+              msg["To"] = os.environ["EMAIL_TO"]
+
+              with smtplib.SMTP_SSL(
+                  "smtp.gmail.com",
+                  465
+              ) as server:
+
+                  server.login(
+                      os.environ["EMAIL_FROM"],
+                      os.environ["EMAIL_PASSWORD"]
+                  )
+
+                  server.send_message(msg)
+
+              print("EMAIL SENT")
+
+          else:
+              print("No earlier appointment found")
 
           EOF
