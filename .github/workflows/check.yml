@@ -41,6 +41,7 @@ jobs:
               raise Exception("Appointment date not found")
 
           appointment_str = match.group(1)
+
           appointment_date = datetime.strptime(
               appointment_str,
               "%d/%m/%y"
@@ -55,18 +56,14 @@ jobs:
 
           if appointment_date < target_date:
 
-              body = f"""
-נמצא תור מוקדם לד"ר פאר
-
-תאריך:
-{appointment_str}
-
-קישור:
-{URL}
-"""
+              body = (
+                  "נמצא תור מוקדם לד\"ר פאר\n\n"
+                  f"תאריך: {appointment_str}\n\n"
+                  f"קישור: {URL}\n"
+              )
 
               msg = MIMEText(body, "plain", "utf-8")
-              msg["Subject"] = "תור מוקדם לד\"ר פאר"
+              msg["Subject"] = "Appointment Alert"
               msg["From"] = os.environ["EMAIL_FROM"]
               msg["To"] = os.environ["EMAIL_TO"]
 
